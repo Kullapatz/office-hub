@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export const COMPANY_DOMAIN = "wandersiam.com";
 export const OFFICE_IP = "203.154.88.42";
@@ -134,11 +134,24 @@ const nowTime = () =>
 
 export function HrProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const [onOfficeNetwork, setOnOfficeNetwork] = useState(true);
   const [emps, setEmps] = useState(employees);
   const [lv, setLv] = useState(leaves);
   const [att, setAtt] = useState(attendance);
   const [ann, setAnn] = useState(announcements);
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("ws-hr-user");
+    if (stored) setCurrentUser(JSON.parse(stored) as Employee);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (currentUser) sessionStorage.setItem("ws-hr-user", JSON.stringify(currentUser));
+    else sessionStorage.removeItem("ws-hr-user");
+  }, [currentUser, hydrated]);
 
   const clientIp = onOfficeNetwork ? OFFICE_IP : EXTERNAL_IP;
 
