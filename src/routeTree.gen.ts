@@ -10,33 +10,128 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AnnouncementsRouteImport } from './routes/announcements'
+import { Route as ApprovalsRouteImport } from './routes/approvals'
+import { Route as AttendanceRouteImport } from './routes/attendance'
+import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DirectoryRouteImport } from './routes/directory'
+import { Route as LeaveRouteImport } from './routes/leave'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnnouncementsRoute = AnnouncementsRouteImport.update({
+  id: '/announcements',
+  path: '/announcements',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalsRoute = ApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AttendanceRoute = AttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DirectoryRoute = DirectoryRouteImport.update({
+  id: '/directory',
+  path: '/directory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaveRoute = LeaveRouteImport.update({
+  id: '/leave',
+  path: '/leave',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/announcements': typeof AnnouncementsRoute
+  '/approvals': typeof ApprovalsRoute
+  '/attendance': typeof AttendanceRoute
+  '/calendar': typeof CalendarRoute
+  '/dashboard': typeof DashboardRoute
+  '/directory': typeof DirectoryRoute
+  '/leave': typeof LeaveRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/announcements': typeof AnnouncementsRoute
+  '/approvals': typeof ApprovalsRoute
+  '/attendance': typeof AttendanceRoute
+  '/calendar': typeof CalendarRoute
+  '/dashboard': typeof DashboardRoute
+  '/directory': typeof DirectoryRoute
+  '/leave': typeof LeaveRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/announcements': typeof AnnouncementsRoute
+  '/approvals': typeof ApprovalsRoute
+  '/attendance': typeof AttendanceRoute
+  '/calendar': typeof CalendarRoute
+  '/dashboard': typeof DashboardRoute
+  '/directory': typeof DirectoryRoute
+  '/leave': typeof LeaveRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/announcements'
+    | '/approvals'
+    | '/attendance'
+    | '/calendar'
+    | '/dashboard'
+    | '/directory'
+    | '/leave'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/announcements'
+    | '/approvals'
+    | '/attendance'
+    | '/calendar'
+    | '/dashboard'
+    | '/directory'
+    | '/leave'
+  id:
+    | '__root__'
+    | '/'
+    | '/announcements'
+    | '/approvals'
+    | '/attendance'
+    | '/calendar'
+    | '/dashboard'
+    | '/directory'
+    | '/leave'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnnouncementsRoute: typeof AnnouncementsRoute
+  ApprovalsRoute: typeof ApprovalsRoute
+  AttendanceRoute: typeof AttendanceRoute
+  CalendarRoute: typeof CalendarRoute
+  DashboardRoute: typeof DashboardRoute
+  DirectoryRoute: typeof DirectoryRoute
+  LeaveRoute: typeof LeaveRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +143,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/announcements': {
+      id: '/announcements'
+      path: '/announcements'
+      fullPath: '/announcements'
+      preLoaderRoute: typeof AnnouncementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approvals': {
+      id: '/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof ApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/attendance': {
+      id: '/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AttendanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/directory': {
+      id: '/directory'
+      path: '/directory'
+      fullPath: '/directory'
+      preLoaderRoute: typeof DirectoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leave': {
+      id: '/leave'
+      path: '/leave'
+      fullPath: '/leave'
+      preLoaderRoute: typeof LeaveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnnouncementsRoute: AnnouncementsRoute,
+  ApprovalsRoute: ApprovalsRoute,
+  AttendanceRoute: AttendanceRoute,
+  CalendarRoute: CalendarRoute,
+  DashboardRoute: DashboardRoute,
+  DirectoryRoute: DirectoryRoute,
+  LeaveRoute: LeaveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
