@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as AttendanceRouteImport } from './routes/attendance'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LeaveRouteImport } from './routes/leave'
@@ -17,6 +18,11 @@ import { Route as LeaveRouteImport } from './routes/leave'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalsRoute = ApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AttendanceRoute = AttendanceRouteImport.update({
@@ -37,12 +43,14 @@ const LeaveRoute = LeaveRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/approvals': typeof ApprovalsRoute
   '/attendance': typeof AttendanceRoute
   '/dashboard': typeof DashboardRoute
   '/leave': typeof LeaveRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/approvals': typeof ApprovalsRoute
   '/attendance': typeof AttendanceRoute
   '/dashboard': typeof DashboardRoute
   '/leave': typeof LeaveRoute
@@ -50,20 +58,22 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/approvals': typeof ApprovalsRoute
   '/attendance': typeof AttendanceRoute
   '/dashboard': typeof DashboardRoute
   '/leave': typeof LeaveRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/attendance' | '/dashboard' | '/leave'
+  fullPaths: '/' | '/approvals' | '/attendance' | '/dashboard' | '/leave'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/attendance' | '/dashboard' | '/leave'
-  id: '__root__' | '/' | '/attendance' | '/dashboard' | '/leave'
+  to: '/' | '/approvals' | '/attendance' | '/dashboard' | '/leave'
+  id: '__root__' | '/' | '/approvals' | '/attendance' | '/dashboard' | '/leave'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApprovalsRoute: typeof ApprovalsRoute
   AttendanceRoute: typeof AttendanceRoute
   DashboardRoute: typeof DashboardRoute
   LeaveRoute: typeof LeaveRoute
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approvals': {
+      id: '/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof ApprovalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/attendance': {
@@ -104,6 +121,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApprovalsRoute: ApprovalsRoute,
   AttendanceRoute: AttendanceRoute,
   DashboardRoute: DashboardRoute,
   LeaveRoute: LeaveRoute,
