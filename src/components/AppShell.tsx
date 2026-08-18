@@ -81,13 +81,13 @@ function NetworkToggle() {
 }
 
 export function AppShell({ title, children }: { title: string; children: ReactNode }) {
-  const { currentUser, logout } = useHr();
+  const { currentUser, hydrated, logout } = useHr();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!currentUser) navigate({ to: "/", replace: true });
-  }, [currentUser, navigate]);
+    if (hydrated && !currentUser) navigate({ to: "/", replace: true });
+  }, [currentUser, hydrated, navigate]);
 
   if (!currentUser) return null;
 

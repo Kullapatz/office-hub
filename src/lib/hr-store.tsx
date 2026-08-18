@@ -106,6 +106,7 @@ export const holidays: Holiday[] = [
 
 type Store = {
   currentUser: Employee | null;
+  hydrated: boolean;
   onOfficeNetwork: boolean;
   clientIp: string;
   employees: Employee[];
@@ -164,6 +165,7 @@ export function HrProvider({ children }: { children: ReactNode }) {
 
     return {
       currentUser,
+      hydrated,
       onOfficeNetwork,
       clientIp,
       employees: emps,
@@ -236,7 +238,7 @@ export function HrProvider({ children }: { children: ReactNode }) {
         return base;
       },
     };
-  }, [currentUser, onOfficeNetwork, clientIp, emps, lv, att, ann]);
+  }, [currentUser, hydrated, onOfficeNetwork, clientIp, emps, lv, att, ann]);
 
   return <HrContext.Provider value={value}>{children}</HrContext.Provider>;
 }
