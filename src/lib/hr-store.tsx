@@ -28,9 +28,9 @@ export type LeaveRequest = {
   end: string;
   days: number;
   reason: string;
-  attachment?: string;
+  attachment?: string | undefined;
   status: LeaveStatus;
-  comment?: string;
+  comment?: string | undefined;
   submittedAt: string;
 };
 
@@ -38,9 +38,9 @@ export type AttendanceRecord = {
   id: string;
   employeeId: string;
   date: string;
-  checkIn?: string;
-  checkOut?: string;
-  ip?: string;
+  checkIn?: string | undefined;
+  checkOut?: string | undefined;
+  ip?: string | undefined;
 };
 
 export type Announcement = {
@@ -79,7 +79,7 @@ const leaves: LeaveRequest[] = [
 
 const attendance: AttendanceRecord[] = [
   { id: "a1", employeeId: "e2", date: iso(today), checkIn: "08:41", ip: OFFICE_IP },
-  { id: "a2", employeeId: "e3", date: iso(today), checkIn: "08:55", checkOut: undefined, ip: OFFICE_IP },
+  { id: "a2", employeeId: "e3", date: iso(today), checkIn: "08:55", ip: OFFICE_IP },
   { id: "a3", employeeId: "e4", date: iso(today), checkIn: "09:12", ip: OFFICE_IP },
   { id: "a4", employeeId: "e1", date: shift(-1), checkIn: "08:47", checkOut: "18:04", ip: OFFICE_IP },
 ];
