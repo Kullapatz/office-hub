@@ -1,11 +1,18 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { clockIn, clockOut, getNetworkStatus } from "./attendance.functions";
 
 export const COMPANY_DOMAIN = "wandersiam.com";
-export const OFFICE_IP = "203.154.88.42";
-export const OFFICE_SUBNET = "203.154.88.0/24";
-export const EXTERNAL_IP = "171.6.204.19";
-
 export const LEAVE_QUOTA = { Sick: 6, Personal: 6, Annual: 6 } as const;
+
 export type LeaveType = keyof typeof LEAVE_QUOTA;
 export type LeaveStatus = "Pending" | "Approved" | "Rejected";
 export type Role = "employee" | "hr";
@@ -18,6 +25,7 @@ export type Employee = {
   email: string;
   role: Role;
   active: boolean;
+  linked: boolean;
 };
 
 export type LeaveRequest = {
@@ -41,6 +49,7 @@ export type AttendanceRecord = {
   checkIn?: string | undefined;
   checkOut?: string | undefined;
   ip?: string | undefined;
+  status: string;
 };
 
 export type Announcement = {
@@ -53,192 +62,393 @@ export type Announcement = {
 };
 
 export type Holiday = { date: string; name: string; kind: "national" | "company" };
+export type OfficeNetwork = { id: string; cidr: string; label: string };
+export type Result = { ok: boolean; error?: string };
 
-const today = new Date();
 export const iso = (d: Date) => d.toISOString().slice(0, 10);
-const shift = (days: number) => iso(new Date(today.getTime() + days * 86400000));
-const y = today.getFullYear();
 
-const employees: Employee[] = [
-  { id: "e1", name: "Kullapat Jullarerk", position: "Operations Lead", department: "Operations", email: `kullapat@${COMPANY_DOMAIN}`, role: "employee", active: true },
-  { id: "e2", name: "Naruemon Sittipong", position: "HR Manager", department: "People", email: `naruemon@${COMPANY_DOMAIN}`, role: "hr", active: true },
-  { id: "e3", name: "Somchai Preechaya", position: "Tour Consultant", department: "Sales", email: `somchai@${COMPANY_DOMAIN}`, role: "employee", active: true },
-  { id: "e4", name: "Ploy Wattana", position: "Content Designer", department: "Marketing", email: `ploy@${COMPANY_DOMAIN}`, role: "employee", active: true },
-  { id: "e5", name: "Anucha Kritsada", position: "Accountant", department: "Finance", email: `anucha@${COMPANY_DOMAIN}`, role: "employee", active: false },
-  { id: "e6", name: "Mint Chaiyaporn", position: "Local Guide", department: "Operations", email: `mint@${COMPANY_DOMAIN}`, role: "employee", active: true },
-];
-
-const leaves: LeaveRequest[] = [
-  { id: "l1", employeeId: "e3", type: "Sick", start: shift(-4), end: shift(-4), days: 1, reason: "Fever, doctor visit", attachment: "medical-cert.pdf", status: "Pending", submittedAt: shift(-5) },
-  { id: "l2", employeeId: "e4", type: "Annual", start: shift(3), end: shift(5), days: 3, reason: "Family trip to Chiang Mai", status: "Pending", submittedAt: shift(-1) },
-  { id: "l3", employeeId: "e1", type: "Personal", start: shift(-12), end: shift(-12), days: 1, reason: "Government office errand", status: "Approved", comment: "Approved, please hand over tasks.", submittedAt: shift(-15) },
-  { id: "l4", employeeId: "e1", type: "Sick", start: shift(-30), end: shift(-29), days: 2, reason: "Flu", attachment: "clinic-note.jpg", status: "Approved", submittedAt: shift(-31) },
-  { id: "l5", employeeId: "e6", type: "Annual", start: shift(7), end: shift(8), days: 2, reason: "Songkran with family", status: "Approved", submittedAt: shift(-3) },
-  { id: "l6", employeeId: "e3", type: "Personal", start: shift(-20), end: shift(-20), days: 1, reason: "Moving apartment", status: "Rejected", comment: "Peak season, please reschedule.", submittedAt: shift(-22) },
-];
-
-const attendance: AttendanceRecord[] = [
-  { id: "a1", employeeId: "e2", date: iso(today), checkIn: "08:41", ip: OFFICE_IP },
-  { id: "a2", employeeId: "e3", date: iso(today), checkIn: "08:55", ip: OFFICE_IP },
-  { id: "a3", employeeId: "e4", date: iso(today), checkIn: "09:12", ip: OFFICE_IP },
-  { id: "a4", employeeId: "e1", date: shift(-1), checkIn: "08:47", checkOut: "18:04", ip: OFFICE_IP },
-];
-
-const announcements: Announcement[] = [
-  { id: "n1", title: "New attendance policy from next month", body: "Check-in must be completed before 09:00 on the office network. Remote days require prior approval from your department lead.", date: shift(-1), category: "Memo", read: false },
-  { id: "n2", title: "Team outing: Kanchanaburi weekend", body: "Join us for a two-day trip. Sign up with People team before the end of this week. Transport and accommodation covered.", date: shift(-3), category: "Event", read: false },
-  { id: "n3", title: "Q3 all-hands meeting", body: "All departments meet in the main room at 15:00. Department leads please prepare a 5-minute update.", date: shift(-6), category: "News", read: true },
-];
-
-export const holidays: Holiday[] = [
-  { date: `${y}-01-01`, name: "New Year's Day", kind: "national" },
-  { date: `${y}-04-13`, name: "Songkran Festival", kind: "national" },
-  { date: `${y}-04-14`, name: "Songkran Festival", kind: "national" },
-  { date: `${y}-05-01`, name: "Labour Day", kind: "national" },
-  { date: `${y}-07-28`, name: "H.M. the King's Birthday", kind: "national" },
-  { date: `${y}-08-12`, name: "Mother's Day", kind: "national" },
-  { date: `${y}-10-23`, name: "Chulalongkorn Day", kind: "national" },
-  { date: `${y}-12-05`, name: "Father's Day", kind: "national" },
-  { date: `${y}-12-31`, name: "New Year's Eve", kind: "national" },
-  { date: shift(10), name: "WanderSiam Founding Day", kind: "company" },
-  { date: shift(24), name: "Company Retreat (office closed)", kind: "company" },
-];
+const timeOf = (value: string | null) =>
+  value
+    ? new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Bangkok",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).format(new Date(value))
+    : undefined;
 
 type Store = {
   currentUser: Employee | null;
   hydrated: boolean;
-  onOfficeNetwork: boolean;
+  loading: boolean;
   clientIp: string;
+  onOfficeNetwork: boolean;
   employees: Employee[];
   leaves: LeaveRequest[];
   attendance: AttendanceRecord[];
   announcements: Announcement[];
-  login: (email: string) => { ok: boolean; error?: string };
-  logout: () => void;
-  setOnOfficeNetwork: (v: boolean) => void;
-  checkIn: () => { ok: boolean; error?: string };
-  checkOut: () => { ok: boolean; error?: string };
+  holidays: Holiday[];
+  officeNetworks: OfficeNetwork[];
   todayRecord: AttendanceRecord | undefined;
-  submitLeave: (r: Omit<LeaveRequest, "id" | "employeeId" | "status" | "submittedAt">) => void;
-  decideLeave: (id: string, status: LeaveStatus, comment?: string) => void;
-  saveEmployee: (e: Employee) => void;
-  deleteEmployee: (id: string) => void;
-  addAnnouncement: (a: Omit<Announcement, "id" | "date" | "read">) => void;
-  markAllRead: () => void;
+  refresh: () => Promise<void>;
+  logout: () => Promise<void>;
+  checkIn: () => Promise<Result>;
+  checkOut: () => Promise<Result>;
+  submitLeave: (r: {
+    type: LeaveType;
+    start: string;
+    end: string;
+    days: number;
+    reason: string;
+    file?: File | null;
+  }) => Promise<Result>;
+  decideLeave: (id: string, status: LeaveStatus, comment?: string) => Promise<Result>;
+  attachmentUrl: (path: string) => Promise<string | null>;
+  saveEmployee: (e: Employee) => Promise<Result>;
+  deleteEmployee: (id: string) => Promise<Result>;
+  addAnnouncement: (a: { title: string; body: string; category: Announcement["category"] }) => Promise<Result>;
+  markAllRead: () => Promise<void>;
+  addOfficeNetwork: (cidr: string, label: string) => Promise<Result>;
+  removeOfficeNetwork: (id: string) => Promise<Result>;
+  addHoliday: (date: string, name: string, kind: Holiday["kind"]) => Promise<Result>;
+  removeHoliday: (date: string, name: string) => Promise<Result>;
   quotaFor: (employeeId: string) => Record<LeaveType, { used: number; quota: number }>;
 };
 
 const HrContext = createContext<Store | null>(null);
 
-const nowTime = () =>
-  new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-
 export function HrProvider({ children }: { children: ReactNode }) {
-  const [currentUser, setCurrentUser] = useState<Employee | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [onOfficeNetwork, setOnOfficeNetwork] = useState(true);
-  const [emps, setEmps] = useState(employees);
-  const [lv, setLv] = useState(leaves);
-  const [att, setAtt] = useState(attendance);
-  const [ann, setAnn] = useState(announcements);
+  const [loading, setLoading] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [officeNetworks, setOfficeNetworks] = useState<OfficeNetwork[]>([]);
+  const [balances, setBalances] = useState<
+    { user_id: string; type: LeaveType; quota: number; used: number }[]
+  >([]);
+  const [network, setNetwork] = useState<{ ip: string; allowed: boolean }>({ ip: "", allowed: false });
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("ws-hr-user");
-    if (stored) setCurrentUser(JSON.parse(stored) as Employee);
-    setHydrated(true);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id ?? null);
+      setHydrated(true);
+    });
+    void supabase.auth.getSession().then(({ data }) => {
+      setUserId(data.session?.user?.id ?? null);
+      setHydrated(true);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    if (currentUser) sessionStorage.setItem("ws-hr-user", JSON.stringify(currentUser));
-    else sessionStorage.removeItem("ws-hr-user");
-  }, [currentUser, hydrated]);
+  const load = useCallback(async () => {
+    if (!userId) {
+      setEmployees([]);
+      setLeaves([]);
+      setAttendance([]);
+      setAnnouncements([]);
+      setBalances([]);
+      return;
+    }
+    setLoading(true);
+    const [profiles, roles, leaveRows, attRows, annRows, reads, holRows, netRows, balRows] =
+      await Promise.all([
+        supabase.from("profiles").select("*").order("name"),
+        supabase.from("user_roles").select("user_id, role"),
+        supabase.from("leave_requests").select("*").order("created_at", { ascending: false }),
+        supabase.from("attendance").select("*").order("work_date", { ascending: false }),
+        supabase.from("announcements").select("*").order("created_at", { ascending: false }),
+        supabase.from("announcement_reads").select("announcement_id"),
+        supabase.from("holidays").select("*").order("holiday_date"),
+        supabase.from("office_networks").select("*").order("created_at"),
+        supabase.from("leave_balances").select("*"),
+      ]);
 
-  const clientIp = onOfficeNetwork ? OFFICE_IP : EXTERNAL_IP;
+    const roleMap = new Map<string, Role>();
+    (roles.data ?? []).forEach((r) => {
+      if (r.role === "hr") roleMap.set(r.user_id, "hr");
+      else if (!roleMap.has(r.user_id)) roleMap.set(r.user_id, "employee");
+    });
+
+    setEmployees(
+      (profiles.data ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        position: p.position,
+        department: p.department,
+        email: p.email,
+        active: p.active,
+        linked: p.linked,
+        role: roleMap.get(p.id) ?? "employee",
+      })),
+    );
+
+    setLeaves(
+      (leaveRows.data ?? []).map((l) => ({
+        id: l.id,
+        employeeId: l.user_id,
+        type: l.type as LeaveType,
+        start: l.start_date,
+        end: l.end_date,
+        days: l.days,
+        reason: l.reason,
+        attachment: l.attachment_path ?? undefined,
+        status: l.status as LeaveStatus,
+        comment: l.comment ?? undefined,
+        submittedAt: l.created_at.slice(0, 10),
+      })),
+    );
+
+    setAttendance(
+      (attRows.data ?? []).map((a) => ({
+        id: a.id,
+        employeeId: a.user_id,
+        date: a.work_date,
+        checkIn: timeOf(a.check_in),
+        checkOut: timeOf(a.check_out),
+        ip: a.ip ?? undefined,
+        status: a.status,
+      })),
+    );
+
+    const readSet = new Set((reads.data ?? []).map((r) => r.announcement_id));
+    setAnnouncements(
+      (annRows.data ?? []).map((a) => ({
+        id: a.id,
+        title: a.title,
+        body: a.body,
+        category: a.category as Announcement["category"],
+        date: a.created_at.slice(0, 10),
+        read: readSet.has(a.id),
+      })),
+    );
+
+    setHolidays(
+      (holRows.data ?? []).map((h) => ({
+        date: h.holiday_date,
+        name: h.name,
+        kind: h.kind === "company" ? "company" : "national",
+      })),
+    );
+    setOfficeNetworks(
+      (netRows.data ?? []).map((n) => ({ id: n.id, cidr: String(n.cidr), label: n.label })),
+    );
+    setBalances(
+      (balRows.data ?? []).map((b) => ({
+        user_id: b.user_id,
+        type: b.type as LeaveType,
+        quota: b.quota,
+        used: b.used,
+      })),
+    );
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (!userId) return;
+    void getNetworkStatus()
+      .then(setNetwork)
+      .catch(() => setNetwork({ ip: "", allowed: false }));
+  }, [userId]);
 
   const value = useMemo<Store>(() => {
-    const todayRecord = att.find((a) => a.employeeId === currentUser?.id && a.date === iso(new Date()));
-    const guard = () =>
-      onOfficeNetwork
-        ? undefined
-        : "Access Denied: You must be connected to the office Wi-Fi/Network.";
+    const currentUser = employees.find((e) => e.id === userId) ?? null;
+    const todayDate = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Bangkok",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date());
+    const todayRecord = attendance.find((a) => a.employeeId === userId && a.date === todayDate);
+
+    const wrap = async (fn: () => Promise<Result>): Promise<Result> => {
+      const res = await fn();
+      await load();
+      return res;
+    };
 
     return {
       currentUser,
       hydrated,
-      onOfficeNetwork,
-      clientIp,
-      employees: emps,
-      leaves: lv,
-      attendance: att,
-      announcements: ann,
+      loading,
+      clientIp: network.ip,
+      onOfficeNetwork: network.allowed,
+      employees,
+      leaves,
+      attendance,
+      announcements,
+      holidays,
+      officeNetworks,
       todayRecord,
-      setOnOfficeNetwork,
-      login: (email) => {
-        const normalized = email.trim().toLowerCase();
-        if (!normalized.endsWith(`@${COMPANY_DOMAIN}`))
-          return { ok: false, error: `Please sign in with your @${COMPANY_DOMAIN} company email.` };
-        if (!onOfficeNetwork)
-          return { ok: false, error: "Access Denied: You must be connected to the office Wi-Fi/Network." };
-        const found = emps.find((e) => e.email.toLowerCase() === normalized);
-        if (!found) return { ok: false, error: "No employee profile found for this email." };
-        if (!found.active) return { ok: false, error: "This account has been deactivated. Contact HR." };
-        setCurrentUser(found);
-        return { ok: true };
+      refresh: load,
+      logout: async () => {
+        await supabase.auth.signOut();
       },
-      logout: () => setCurrentUser(null),
-      checkIn: () => {
-        const err = guard();
-        if (err) return { ok: false, error: err };
-        if (!currentUser) return { ok: false, error: "Not signed in." };
-        const date = iso(new Date());
-        if (todayRecord?.checkIn) return { ok: false, error: "You have already checked in today." };
-        setAtt((prev) => [
-          ...prev,
-          { id: `a${Date.now()}`, employeeId: currentUser.id, date, checkIn: nowTime(), ip: clientIp },
-        ]);
-        return { ok: true };
-      },
-      checkOut: () => {
-        const err = guard();
-        if (err) return { ok: false, error: err };
-        if (!todayRecord?.checkIn) return { ok: false, error: "You need to check in first." };
-        if (todayRecord.checkOut) return { ok: false, error: "You have already checked out today." };
-        setAtt((prev) =>
-          prev.map((a) => (a.id === todayRecord.id ? { ...a, checkOut: nowTime(), ip: clientIp } : a)),
-        );
-        return { ok: true };
-      },
-      submitLeave: (r) => {
-        if (!currentUser) return;
-        setLv((prev) => [
-          {
-            ...r,
-            id: `l${Date.now()}`,
-            employeeId: currentUser.id,
-            status: "Pending",
-            submittedAt: iso(new Date()),
-          },
-          ...prev,
-        ]);
-      },
+      checkIn: () =>
+        wrap(async () => {
+          const res = await clockIn();
+          setNetwork((n) => n);
+          return res.ok ? { ok: true } : { ok: false, error: res.error };
+        }),
+      checkOut: () =>
+        wrap(async () => {
+          const res = await clockOut();
+          return res.ok ? { ok: true } : { ok: false, error: res.error };
+        }),
+      submitLeave: (r) =>
+        wrap(async () => {
+          if (!userId) return { ok: false, error: "Not signed in." };
+          let attachmentPath: string | null = null;
+          if (r.file) {
+            const path = `${userId}/${Date.now()}-${r.file.name.replace(/[^\w.-]/g, "_")}`;
+            const { error } = await supabase.storage
+              .from("medical-certificates")
+              .upload(path, r.file, { upsert: false });
+            if (error) return { ok: false, error: `Upload failed: ${error.message}` };
+            attachmentPath = path;
+          }
+          const { error } = await supabase.from("leave_requests").insert({
+            user_id: userId,
+            type: r.type,
+            start_date: r.start,
+            end_date: r.end,
+            days: r.days,
+            reason: r.reason,
+            attachment_path: attachmentPath,
+          });
+          return error ? { ok: false, error: error.message } : { ok: true };
+        }),
       decideLeave: (id, status, comment) =>
-        setLv((prev) => prev.map((l) => (l.id === id ? { ...l, status, comment } : l))),
+        wrap(async () => {
+          const { error } = await supabase
+            .from("leave_requests")
+            .update({ status, comment: comment ?? null })
+            .eq("id", id);
+          return error ? { ok: false, error: error.message } : { ok: true };
+        }),
+      attachmentUrl: async (path) => {
+        const { data } = await supabase.storage
+          .from("medical-certificates")
+          .createSignedUrl(path, 300);
+        return data?.signedUrl ?? null;
+      },
       saveEmployee: (e) =>
-        setEmps((prev) => (prev.some((p) => p.id === e.id) ? prev.map((p) => (p.id === e.id ? e : p)) : [...prev, e])),
-      deleteEmployee: (id) => setEmps((prev) => prev.filter((e) => e.id !== id)),
+        wrap(async () => {
+          const exists = employees.some((p) => p.id === e.id);
+          const row = {
+            email: e.email.trim().toLowerCase(),
+            name: e.name.trim(),
+            position: e.position,
+            department: e.department,
+            active: e.active,
+          };
+          if (exists) {
+            const { error } = await supabase.from("profiles").update(row).eq("id", e.id);
+            if (error) return { ok: false, error: error.message };
+          } else {
+            const { data, error } = await supabase
+              .from("profiles")
+              .insert(row)
+              .select("id")
+              .single();
+            if (error) return { ok: false, error: error.message };
+            await supabase.from("leave_balances").insert(
+              (["Sick", "Personal", "Annual"] as LeaveType[]).map((type) => ({
+                user_id: data.id,
+                type,
+              })),
+            );
+            e = { ...e, id: data.id };
+          }
+          const current = employees.find((p) => p.id === e.id)?.role ?? "employee";
+          if (current !== e.role) {
+            if (e.role === "hr") await supabase.from("user_roles").insert({ user_id: e.id, role: "hr" });
+            else await supabase.from("user_roles").delete().eq("user_id", e.id).eq("role", "hr");
+          }
+          return { ok: true };
+        }),
+      deleteEmployee: (id) =>
+        wrap(async () => {
+          const { error } = await supabase.from("profiles").delete().eq("id", id);
+          return error ? { ok: false, error: error.message } : { ok: true };
+        }),
       addAnnouncement: (a) =>
-        setAnn((prev) => [{ ...a, id: `n${Date.now()}`, date: iso(new Date()), read: true }, ...prev]),
-      markAllRead: () => setAnn((prev) => prev.map((a) => ({ ...a, read: true }))),
+        wrap(async () => {
+          const { error } = await supabase
+            .from("announcements")
+            .insert({ ...a, created_by: userId });
+          return error ? { ok: false, error: error.message } : { ok: true };
+        }),
+      markAllRead: async () => {
+        if (!userId) return;
+        const unread = announcements.filter((a) => !a.read);
+        if (unread.length === 0) return;
+        await supabase
+          .from("announcement_reads")
+          .upsert(unread.map((a) => ({ announcement_id: a.id, user_id: userId })));
+        await load();
+      },
+      addOfficeNetwork: (cidr, label) =>
+        wrap(async () => {
+          const { error } = await supabase.from("office_networks").insert({ cidr, label });
+          return error ? { ok: false, error: error.message } : { ok: true };
+        }),
+      removeOfficeNetwork: (id) =>
+        wrap(async () => {
+          const { error } = await supabase.from("office_networks").delete().eq("id", id);
+          return error ? { ok: false, error: error.message } : { ok: true };
+        }),
+      addHoliday: (date, name, kind) =>
+        wrap(async () => {
+          const { error } = await supabase
+            .from("holidays")
+            .insert({ holiday_date: date, name, kind });
+          return error ? { ok: false, error: error.message } : { ok: true };
+        }),
+      removeHoliday: (date, name) =>
+        wrap(async () => {
+          const { error } = await supabase
+            .from("holidays")
+            .delete()
+            .eq("holiday_date", date)
+            .eq("name", name);
+          return error ? { ok: false, error: error.message } : { ok: true };
+        }),
       quotaFor: (employeeId) => {
-        const base = { Sick: { used: 0, quota: LEAVE_QUOTA.Sick }, Personal: { used: 0, quota: LEAVE_QUOTA.Personal }, Annual: { used: 0, quota: LEAVE_QUOTA.Annual } };
-        lv.filter((l) => l.employeeId === employeeId && l.status === "Approved").forEach((l) => {
-          base[l.type].used += l.days;
-        });
+        const base: Record<LeaveType, { used: number; quota: number }> = {
+          Sick: { used: 0, quota: LEAVE_QUOTA.Sick },
+          Personal: { used: 0, quota: LEAVE_QUOTA.Personal },
+          Annual: { used: 0, quota: LEAVE_QUOTA.Annual },
+        };
+        balances
+          .filter((b) => b.user_id === employeeId)
+          .forEach((b) => {
+            base[b.type] = { used: b.used, quota: b.quota };
+          });
         return base;
       },
     };
-  }, [currentUser, hydrated, onOfficeNetwork, clientIp, emps, lv, att, ann]);
+  }, [
+    userId,
+    hydrated,
+    loading,
+    network,
+    employees,
+    leaves,
+    attendance,
+    announcements,
+    holidays,
+    officeNetworks,
+    balances,
+    load,
+  ]);
 
   return <HrContext.Provider value={value}>{children}</HrContext.Provider>;
 }
