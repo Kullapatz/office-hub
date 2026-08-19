@@ -258,36 +258,7 @@ export type Database = {
       }
     }
     Views: {
-      approved_team_leave: {
-        Row: {
-          days: number | null
-          end_date: string | null
-          id: string | null
-          start_date: string | null
-          status: Database["public"]["Enums"]["leave_status"] | null
-          type: Database["public"]["Enums"]["leave_type"] | null
-          user_id: string | null
-        }
-        Insert: {
-          days?: number | null
-          end_date?: string | null
-          id?: string | null
-          start_date?: string | null
-          status?: Database["public"]["Enums"]["leave_status"] | null
-          type?: Database["public"]["Enums"]["leave_type"] | null
-          user_id?: string | null
-        }
-        Update: {
-          days?: number | null
-          end_date?: string | null
-          id?: string | null
-          start_date?: string | null
-          status?: Database["public"]["Enums"]["leave_status"] | null
-          type?: Database["public"]["Enums"]["leave_type"] | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       bootstrap_current_user: { Args: { _name?: string }; Returns: undefined }
@@ -300,6 +271,18 @@ export type Database = {
       }
       ip_allowed: { Args: { _ip: string }; Returns: boolean }
       is_hr: { Args: never; Returns: boolean }
+      team_leave: {
+        Args: never
+        Returns: {
+          days: number
+          employee_name: string
+          end_date: string
+          id: string
+          start_date: string
+          type: Database["public"]["Enums"]["leave_type"]
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "hr" | "employee"
